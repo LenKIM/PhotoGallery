@@ -1,27 +1,40 @@
 package com.yyy.xxx.photogallery;
 
-import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+
+import com.yyy.xxx.photogallery.model.GalleryItem;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by len on 2017. 1. 11..
  */
-public class PhotoGalleryFragment extends Fragment {
+public class PhotoGalleryFragment extends Fragment  {
 
 
     private static final String TAG = PhotoGalleryFragment.class.getName();
 
-    public static final int PERMISSION_GRANTED = PackageManager.PERMISSION_GRANTED;
-
     private RecyclerView mPhotoRecyclerView;
+    private int lastFetchPage = 1;
+    private List<GalleryItem> mItems = new ArrayList<>();
+//    private List<GsonGalleryItem> mItems = new ArrayList<>();
+
+    private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
 
     public static PhotoGalleryFragment newInstance(){
         return new PhotoGalleryFragment();
@@ -31,7 +44,20 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemsTask().execute();
+        new FetchItemsTask().execute(FlickrFetchr.currentPageNo);
+
+        Handler responseHandler = new Handler();
+        mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
+        mThumbnailDownloader.setmThumbnailDownloadListener(new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
+            @Override
+            public void onThumbnailDownloaded(PhotoHolder target, Bitmap thumbnail) {
+                Drawable drawable = new BitmapDrawable(getResources(), thumbnail);
+                target.bindDrawable(drawable);
+            }
+        });
+        mThumbnailDownloader.start();
+        mThumbnailDownloader.getLooper();
+        Log.i(TAG, "Background thread started");
     }
 
     @Nullable
@@ -42,13 +68,126 @@ public class PhotoGalleryFragment extends Fragment {
             mPhotoRecyclerView = (RecyclerView) view
                     .findViewById(R.id.fragment_photo_gallery);
             mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
-            return view;
+        setupAdapter();
+            mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                    super.onScrollStateChanged(recyclerView, newState);
+                    int totalItemCount = recyclerView.getLayoutManager().getItemCount();
+                    Log.d(TAG, "전체 아이템 갯수" + String.valueOf(totalItemCount));
+
+                    PhotoAdapter adapter = (PhotoAdapter) mPhotoRecyclerView.getAdapter();
+                    int lastpostion = adapter.getLastboundPostion();
+                    GridLayoutManager layoutManager = (GridLayoutManager) recyclerView.getLayoutManager();
+
+                    Log.d(TAG,"getSpanCount()" + layoutManager.getSpanCount());
+                    //아.. 3개씩 빠지는구나.....
+                    if (lastpostion >= totalItemCount - 1){
+                        new FetchItemsTask().execute(lastFetchPage+1);
+                    }
+
+                    /**
+                     *     PhotoAdapter adapter = (PhotoAdapter)recyclerView.getAdapter(); // must be cast to Photoadapter, as I use a non-inherited method
+                     int lastPosition = adapter.getLastBoundPosition();
+                     GridLayoutManager layoutManager = (GridLayoutManager)recyclerView.getLayoutManager();
+                     int loadBufferPosition = 1;
+                     if(lastPosition >= adapter.getItemCount() - layoutManager.getSpanCount()- loadBufferPosition){
+                     new FetchItemsTask().execute(lastPosition + 1);
+                     * */
+                }
+            });
+        return view;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mThumbnailDownloader.quit();
+        mThumbnailDownloader.clearQueue();
+        Log.i(TAG, "Background thread destroyed");
+    }
+
+    private void setupAdapter() {
+        /**
+         * isAdded()
+         * Return true if the fragment is currently added to its activity.
+         * 프래그먼트가 액티비티에 연결되었는지 확인하는 것
+         */
+        if (isAdded()){
+            mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
+        }
+    }
+
+    private class PhotoHolder extends RecyclerView.ViewHolder {
+
+//        private TextView mTitleTextView;
+//        이제 진짜 사진을 넣을 차례
+        private ImageView mItemImageView;
+        public PhotoHolder(View itemView){
+            super(itemView);
+            mItemImageView = (ImageView) itemView.findViewById(R.id.fragment_photo_gallery_image_view);
+        }
+
+//        public void bindGalleryItem(GalleryItem item){
+
+//        public void bindGalleryItem(GsonGalleryItem item){
+//            mTitleTextView.setText(item.toString());
+//        }
+        public void bindDrawable(Drawable drawable){
+            mItemImageView.setImageDrawable(drawable);
+        }
+    }
+
+    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
+
+        //처음에 Adapter에 리스트넣음
+        private List<GalleryItem> mGalleryItems;
+//        private List<GsonGalleryItem> mGalleryItems;
+
+        public int lastboundPostion;
+
+        public int getLastboundPostion(){
+            return lastboundPostion;
+        }
+
+        public PhotoAdapter(List<GalleryItem> galleryItems) {
+//        public PhotoAdapter(List<GsonGalleryItem> galleryItems) {
+            mGalleryItems = galleryItems;
+        }
+
+        @Override
+        public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+//            TextView textView = new TextView(getActivity());
+//            return new PhotoHolder(textView);
+            LayoutInflater inflater = LayoutInflater.from(getActivity());
+            View view = inflater.inflate(R.layout.gallery_item, parent, false);
+            return new PhotoHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(PhotoHolder holder, int position) {
+//            GsonGalleryItem galleryItem = mGalleryItems.get(position);
+            GalleryItem galleryItem = mGalleryItems.get(position);
+//            holder.bindGalleryItem(galleryItem);
+            Drawable placeholder = getResources().getDrawable(R.drawable.bill_up_close);
+            holder.bindDrawable(placeholder);
+            mThumbnailDownloader.queueThumbnail(holder, galleryItem.getUrl());
+            lastboundPostion = position;
+            Log.i(TAG,"마지막 lastboundPostion는" + lastboundPostion);
+
+
+        }
+
+        @Override
+        public int getItemCount() {
+            return mGalleryItems.size();
+        }
+
 
     }
 
-    private class FetchItemsTask extends AsyncTask<Void, Void, Void> {
-        @Override
-        protected Void doInBackground(Void... params) {
+    private class FetchItemsTask extends AsyncTask<Integer, Void, List<GalleryItem>> {
+//        protected List<GsonGalleryItem> doInBackground(Void... params) {
 //            try {
 //                String result = new FlickrFetchr()
 //                        .getUrlString("http://thatsnothing.blog.me/220701695721");
@@ -56,8 +195,25 @@ public class PhotoGalleryFragment extends Fragment {
 //            }catch (IOException ioe){
 //                Log.e(TAG, "Failed to fetch URL : ", ioe);
 //            }
-            new FlickrFetchr().fetchItems();
-        return null;
+
+        @Override
+        protected List<GalleryItem> doInBackground(Integer... params) {
+            return new FlickrFetchr().fetchItems(params[0]);
+        }
+
+        @Override
+        protected void onPostExecute(List<GalleryItem> galleryItems) {
+
+            if (lastFetchPage > 1){
+                mItems.addAll(galleryItems);
+                Log.d(TAG, "lastFetchPage" + lastFetchPage);
+                mPhotoRecyclerView.getAdapter().notifyDataSetChanged();
+            } else {
+                mItems = galleryItems;
+                setupAdapter();
+            }
+            lastFetchPage++;
+//            mItems.addAll()
         }
     }
 }

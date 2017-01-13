@@ -1,13 +1,18 @@
 package com.yyy.xxx.photogallery.model;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * Created by len on 2017. 1. 13..
  */
 
 public class GalleryItem {
 
+    @SerializedName("title")
     private String mCaption;
+    @SerializedName("id")
     private String mId;
+    @SerializedName("url_s")
     private String mUrl;
 
     @Override
