@@ -1,5 +1,6 @@
 package com.yyy.xxx.photogallery;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -199,14 +200,17 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         }
     }
 
-    private class PhotoHolder extends RecyclerView.ViewHolder {
+    private class PhotoHolder extends RecyclerView.ViewHolder
+                        implements View.OnClickListener{
 
 //        private TextView mTitleTextView;
 //        이제 진짜 사진을 넣을 차례
         private ImageView mItemImageView;
+        private GalleryItem mGalleryItem;
         public PhotoHolder(View itemView){
             super(itemView);
             mItemImageView = (ImageView) itemView.findViewById(R.id.fragment_photo_gallery_image_view);
+            itemView.setOnClickListener(this);
         }
 
 //        public void bindGalleryItem(GalleryItem item){
@@ -216,6 +220,19 @@ public class PhotoGalleryFragment extends VisibleFragment  {
 //        }
         public void bindDrawable(Drawable drawable){
             mItemImageView.setImageDrawable(drawable);
+        }
+
+        public void bindGalleryItem(GalleryItem galleryItem) {
+            mGalleryItem = galleryItem;
+        }
+
+
+        @Override
+        public void onClick(View v) {
+//          웹뷰로 작동시키는 방법
+//            Intent i = new Intent(Intent.ACTION_VIEW, mGalleryItem.getPhotoPageUri());
+            Intent i = PhotoPageActivity.newIntent(getActivity(), mGalleryItem.getPhotoPageUri());
+            startActivity(i);
         }
     }
 
@@ -250,6 +267,7 @@ public class PhotoGalleryFragment extends VisibleFragment  {
 //            GsonGalleryItem galleryItem = mGalleryItems.get(position);
             GalleryItem galleryItem = mGalleryItems.get(position);
 //            holder.bindGalleryItem(galleryItem);
+            holder.bindGalleryItem(galleryItem);
             Drawable placeholder = getResources().getDrawable(R.drawable.bill_up_close);
             holder.bindDrawable(placeholder);
             mThumbnailDownloader.queueThumbnail(holder, galleryItem.getUrl());

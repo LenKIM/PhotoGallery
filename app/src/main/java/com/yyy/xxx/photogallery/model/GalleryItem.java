@@ -1,5 +1,7 @@
 package com.yyy.xxx.photogallery.model;
 
+import android.net.Uri;
+
 /**
  * Created by len on 2017. 1. 13..
  */
@@ -12,6 +14,7 @@ public class GalleryItem {
     private String mId;
 //    @SerializedName("url_s")
     private String mUrl;
+    private String mOwner;
 
     @Override
     public String toString() {
@@ -40,5 +43,21 @@ public class GalleryItem {
 
     public void setUrl(String mUrl) {
         this.mUrl = mUrl;
+    }
+
+    public String getOwner() {
+        return mOwner;
+    }
+
+    public void setOwner(String mOwner) {
+        this.mOwner = mOwner;
+    }
+
+    public Uri getPhotoPageUri(){
+        return Uri.parse("http://www.flicker.com/photos/")
+                .buildUpon()
+                .appendPath(mOwner)
+                .appendPath(mId)
+                .build();
     }
 }

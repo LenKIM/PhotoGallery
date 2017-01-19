@@ -35,7 +35,7 @@ import java.util.List;
 public class FlickrFetchr {
 
     private static final String TAG = FlickrFetchr.class.getName();
-    private static final String API_KEY = "bb17b682b12517d078d226ceece349bd";
+    private static final String API_KEY = "";
 
     public static int currentPageNo = 1;
 
@@ -156,6 +156,7 @@ public class FlickrFetchr {
                 continue;
             }
             item.setUrl(photoJsonObject.getString("url_s"));
+            item.setOwner(photoJsonObject.getString("owner"));
             items.add(item);
         }
     }
